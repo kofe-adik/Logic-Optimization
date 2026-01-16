@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual env
+venv/
+.env/
+
+# Results & outputs
+results/
+storage/cache/
+*.pkl
+*.csv
+*.json
+*.log
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
