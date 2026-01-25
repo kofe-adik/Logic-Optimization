@@ -2,8 +2,10 @@
 set -euo pipefail
 
 # ========= CONFIG =========
-BENCH_DIR="benchmarks/epfl"
-SCRIPT_NAME="resyn2"
+BENCH_DIR="benchmarks/epfl/arithmetic"
+#BENCH_DIR="benchmarks/epfl/random_control"
+#SCRIPT_NAME="resyn2"
+SCRIPT_NAME="init"
 LUT_K=6
 OPTION="fpga-${LUT_K}"
 

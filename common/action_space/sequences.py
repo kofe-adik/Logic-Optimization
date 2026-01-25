@@ -3,10 +3,11 @@ from typing import List, Dict
 from common.action_space.actions import Action
 from common.action_space.primitives import *
 
-INIT: List[Action] = []
+INIT: List[Action] = [
+    BALANCE,
+]
 
 RESYN: List[Action] = [
-    *INIT,
     BALANCE,
     REWRITE,
     REWRITE_Z,
@@ -16,7 +17,6 @@ RESYN: List[Action] = [
 ]
 
 RESYN2: List[Action] = [
-    *INIT,
     BALANCE,
     REWRITE,
     REFACTOR,
