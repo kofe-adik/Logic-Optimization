@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # ========= CONFIG =========
-BENCH_DIR="benchmarks/epfl/arithmetic"
-#BENCH_DIR="benchmarks/epfl/random_control"
+#BENCH_DIR="benchmarks/epfl/arithmetic"
+BENCH_DIR="benchmarks/epfl/random_control"
 #SCRIPT_NAME="resyn2"
 SCRIPT_NAME="init"
 LUT_K=6

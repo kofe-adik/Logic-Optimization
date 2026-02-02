@@ -2,37 +2,32 @@ import argparse
 import logging
 from typing import List
 
-from common.action_space.spaces import ACTION_SPACES
-from common.action_space.actions import Action
-from common.execution.design_eval import evaluate_fpga_design
+from common.action_space.spaces import EXTENDED_MACRO_SPACE
+from common.action_space.actions import MacroAction
+from common.execution.design_eval import evaluate_fpga_design_macro
 from common.storage.paths import (
     get_project_root,
     get_run_result_dir,
 )
 from common.storage.result_writer import write_result
 from common.utils.logging_utils import setup_logger
-from algorithms.greedy.greedy_search import greedy_search
+from algorithms.subseq_greedy.greedy_search_macro import greedy_search_macro
 
 
 def main():
-    parser = argparse.ArgumentParser("Greedy logic optimization")
+    parser = argparse.ArgumentParser("Greedy MACRO logic optimization")
     parser.add_argument("--design", required=True)
     parser.add_argument("--lut-k", type=int, default=6)
-    parser.add_argument(
-        "--space",
-        default="standard",
-        choices=ACTION_SPACES.keys(),
-    )
-    parser.add_argument("--max-steps", type=int, default=20)
+    parser.add_argument("--max-slots", type=int, default=5)
 
     args = parser.parse_args()
 
     # ===== option string =====
-    option = f"lutk{args.lut_k}_space-{args.space}_steps-{args.max_steps}"
+    option = f"lutk{args.lut_k}_macro_slots-{args.max_slots}"
 
     # ===== result dir =====
     result_dir = get_run_result_dir(
-        algo_name="greedy",
+        algo_name="greedy_macro",
         option=option,
         design_name=args.design,
         run_id=None,
@@ -43,40 +38,39 @@ def main():
         print(f"[SKIP] Result already exists: {result_dir}")
         return
 
-    # ===== logging (ONE place only) =====
+    # ===== logging =====
     log_file = result_dir / "run.log"
     setup_logger(
-        name="greedy",
+        name="greedy_macro",
         log_file=log_file,
         level=logging.INFO,
     )
-    logger = logging.getLogger("greedy")
+    logger = logging.getLogger("greedy_macro")
 
-    # ===== action space =====
-    action_space: List[Action] = ACTION_SPACES[args.space]
+    # ===== macro space =====
+    macro_space: List[MacroAction] = EXTENDED_MACRO_SPACE
 
     # ===== design file =====
     design_file = (
         get_project_root()
         / "benchmarks"
         / "epfl"
-        #/ "arithmetic"
-        / "random_control"
+        / "arithmetic"
+#        / "random_control"
         / f"{args.design}.blif"
     )
 
-    logger.info("== Greedy optimization ==")
-    logger.info("Design     : %s", args.design)
-    logger.info("LUT K      : %d", args.lut_k)
-    logger.info("Space      : %s", args.space)
-    logger.info("Max steps  : %d", args.max_steps)
-    logger.info("Action cnt : %d", len(action_space))
-    logger.info("Result dir : %s", result_dir)
+    logger.info("== Greedy MACRO optimization ==")
+    logger.info("Design      : %s", args.design)
+    logger.info("LUT K       : %d", args.lut_k)
+    logger.info("Max slots   : %d", args.max_slots)
+    logger.info("Macro count : %d", len(macro_space))
+    logger.info("Result dir  : %s", result_dir)
 
     # ===== reference =====
-    ref_metrics = evaluate_fpga_design(
+    ref_metrics = evaluate_fpga_design_macro(
         design_file=str(design_file),
-        actions=[],
+        macros=[],
         lut_k=args.lut_k,
     )
 
@@ -86,20 +80,20 @@ def main():
         ref_metrics["levels"],
     )
 
-    # ===== run greedy =====
-    result = greedy_search(
+    # ===== run greedy macro =====
+    result = greedy_search_macro(
         design_file=str(design_file),
-        action_space=action_space,
+        macro_space=macro_space,
         lut_k=args.lut_k,
         ref_metrics=ref_metrics,
-        max_steps=args.max_steps,
+        max_slots=args.max_slots,
     )
 
     # ===== write result =====
     write_result(
         result_dir=result_dir,
         metrics={
-            "sequence": [a.name for a in result["sequence"]],
+            "sequence": [f"Macro-{m.id}" for m in result["sequence"]],
             "lut": result["metrics"]["lut"],
             "levels": result["metrics"]["levels"],
             "exec_time": result["exec_time"],

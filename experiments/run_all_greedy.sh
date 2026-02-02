@@ -6,7 +6,8 @@ LUT_K=6
 MAX_STEPS=20
 SPACES=("standard" "extended")
 
-BENCH_DIR="benchmarks/epfl/arithmetic"
+#BENCH_DIR="benchmarks/epfl/arithmetic"
+BENCH_DIR="benchmarks/epfl/random_control"
 
 echo "== Run ALL Greedy =="
 echo "LUT_K     = ${LUT_K}"

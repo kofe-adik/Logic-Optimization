@@ -4,7 +4,7 @@ from common.action_space.actions import Action
 from common.action_space.primitives import *
 
 INIT: List[Action] = [
-    BALANCE,
+    
 ]
 
 RESYN: List[Action] = [

@@ -18,4 +18,10 @@ class ActionSimple(Action):
 
 class ActionComposed(Action):
     def __init__(self, name: str):
-        super().__init__(name, f"&get -n; {name}; &put;")
+       super().__init__(name, f"&get -n; {name}; &put;")
+
+class MacroAction:
+    def __init__(self, id: int, cmd: str):
+        self.id = id
+        self.cmd = cmd      
+
