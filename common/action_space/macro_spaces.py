@@ -297,6 +297,7 @@ SUPERSET_MACRO_SPACE: List[MacroAction] = [
 ]
 
 FULL_MACRO_SPACE: List[MacroAction] = [
+        MacroAction(0, "rewrite -z; &get -n; &blut; &put; &get -n; &sopb; &put; &get -n; &sopb; &put; "),
 	MacroAction(1, "rewrite; rewrite; rewrite; rewrite; "),
 	MacroAction(2, "rewrite; rewrite; rewrite; rewrite -z; "),
 	MacroAction(3, "rewrite; rewrite; rewrite; resub; "),

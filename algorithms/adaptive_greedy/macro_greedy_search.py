@@ -11,7 +11,6 @@ from common.objectives.compute_qor import compute_qor
 
 logger = logging.getLogger("adaptive_greedy")
 
-
 def eval_one_macro(
     macro: MacroAction,
     cur_seq: List[MacroAction],
@@ -21,11 +20,20 @@ def eval_one_macro(
 ):
     cand_seq = cur_seq + [macro]
 
-    metrics = evaluate_fpga_design_macro(
-        design_file=design_file,
-        macros=cand_seq,
-        lut_k=lut_k,
-    )
+    try:
+        metrics = evaluate_fpga_design_macro(
+            design_file=design_file,
+            macros=cand_seq,
+            lut_k=lut_k,
+        )
+    except Exception as e:
+        logger.warning(
+            "ABC FAIL | Macro-%05d | seq=%s | err=%s",
+            macro.id,
+            [m.name for m in cand_seq],
+            str(e),
+        )
+        return None
 
     qor = compute_qor(metrics, ref_metrics)
 
@@ -42,6 +50,38 @@ def eval_one_macro(
         "metrics": metrics,
         "qor": qor,
     }
+
+
+#def eval_one_macro(
+#    macro: MacroAction,
+#    cur_seq: List[MacroAction],
+#    design_file: str,
+#    lut_k: int,
+#    ref_metrics: Dict[str, float],
+#):
+#    cand_seq = cur_seq + [macro]
+#
+#    metrics = evaluate_fpga_design_macro(
+#        design_file=design_file,
+#        macros=cand_seq,
+#        lut_k=lut_k,
+#    )
+#
+#    qor = compute_qor(metrics, ref_metrics)
+#
+#    logger.info(
+#        "Trial | Macro-%05d | LUT=%4d LEVEL=%3d QOR=%.4f",
+#        macro.id,
+#        metrics["lut"],
+#        metrics["levels"],
+#        qor,
+#    )
+#
+#    return {
+#        "macro": macro,
+#        "metrics": metrics,
+#        "qor": qor,
+#    }
 
 
 def greedy_search_macro(
