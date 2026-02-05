@@ -22,9 +22,22 @@ def _eval_slot1(
         macros=[macro],
         lut_k=lut_k,
     )
-    qor = compute_qor(metrics, ref_metrics)
-    return macro, metrics, qor
 
+    qor = compute_qor(metrics, ref_metrics)
+
+    # --------------------------------------------------
+    # LOG every slot-1 evaluation (machine-facing)
+    # --------------------------------------------------
+    logger.info(
+        "PoolEval | Macro-%05d | LUT=%4d LEVEL=%3d QOR=%.4f | CMD=%s",
+        macro.id,
+        metrics["lut"],
+        metrics["levels"],
+        qor,
+        macro.cmd,
+    )
+
+    return macro, metrics, qor
 
 def extract_eval_pool(
     macro_space: List[MacroAction],

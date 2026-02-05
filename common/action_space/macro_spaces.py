@@ -8,6 +8,7 @@ from common.action_space.actions import Action, MacroAction
 from common.action_space.primitives import *
 
 SAFE_MACRO_SPACE: List[MacroAction] = [
+    MacroAction(0, ""),
     MacroAction(-1000, "rewrite; rewrite; rewrite; rewrite; "),
     MacroAction(-1001, "rewrite; rewrite; rewrite; resub; "),
     MacroAction(-1002, "rewrite; rewrite; rewrite; refactor; "),
@@ -267,34 +268,34 @@ SAFE_MACRO_SPACE: List[MacroAction] = [
 ]
 
 
-SUPERSET_MACRO_SPACE: List[MacroAction] = [
-    MacroAction(3, "rewrite; rewrite; rewrite; resub; "),
-    MacroAction(4, "rewrite; rewrite; rewrite; resub -z; "),
-    MacroAction(14, "rewrite; rewrite; rewrite -z; resub; "),
-    MacroAction(15, "rewrite; rewrite; rewrite -z; resub -z; "),
-    MacroAction(23, "rewrite; rewrite; resub; rewrite; "),
-    MacroAction(24, "rewrite; rewrite; resub; rewrite -z; "),
-    MacroAction(25, "rewrite; rewrite; resub; resub; "),
-    MacroAction(26, "rewrite; rewrite; resub; resub -z; "),
+#SUPERSET_MACRO_SPACE: List[MacroAction] = [
+#    MacroAction(3, "rewrite; rewrite; rewrite; resub; "),
+#    MacroAction(4, "rewrite; rewrite; rewrite; resub -z; "),
+#    MacroAction(14, "rewrite; rewrite; rewrite -z; resub; "),
+#    MacroAction(15, "rewrite; rewrite; rewrite -z; resub -z; "),
+#    MacroAction(23, "rewrite; rewrite; resub; rewrite; "),
+#    MacroAction(24, "rewrite; rewrite; resub; rewrite -z; "),
+#    MacroAction(25, "rewrite; rewrite; resub; resub; "),
+#    MacroAction(26, "rewrite; rewrite; resub; resub -z; "),
 
-    MacroAction(1331, "rewrite; &get -n; &sopb; &put; &get -n; &sopb; &put; &get -n; &sopb; &put; "),
-    MacroAction(2662, "rewrite -z; &get -n; &sopb; &put; &get -n; &sopb; &put; &get -n; &sopb; &put; "),
-    MacroAction(6655, "refactor; &get -n; &sopb; &put; &get -n; &sopb; &put; &get -n; &sopb; &put; "),
-    MacroAction(7986, "refactor -z; &get -n; &sopb; &put; &get -n; &sopb; &put; &get -n; &sopb; &put; "),
-    MacroAction(9317, "balance; &get -n; &sopb; &put; &get -n; &sopb; &put; &get -n; &sopb; &put; "),
-    MacroAction(10648, "fraig; &get -n; &sopb; &put; &get -n; &sopb; &put; &get -n; &sopb; &put; "),
-    MacroAction(13431, "&get -n; &sopb; &put; rewrite; &get -n; &sopb; &put; &get -n; &sopb; &put; "),
-    MacroAction(13915, "&get -n; &sopb; &put; refactor; &get -n; &sopb; &put; &get -n; &sopb; &put; "),
+#    MacroAction(1331, "rewrite; &get -n; &sopb; &put; &get -n; &sopb; &put; &get -n; &sopb; &put; "),
+#    MacroAction(2662, "rewrite -z; &get -n; &sopb; &put; &get -n; &sopb; &put; &get -n; &sopb; &put; "),
+#    MacroAction(6655, "refactor; &get -n; &sopb; &put; &get -n; &sopb; &put; &get -n; &sopb; &put; "),
+#    MacroAction(7986, "refactor -z; &get -n; &sopb; &put; &get -n; &sopb; &put; &get -n; &sopb; &put; "),
+#    MacroAction(9317, "balance; &get -n; &sopb; &put; &get -n; &sopb; &put; &get -n; &sopb; &put; "),
+#    MacroAction(10648, "fraig; &get -n; &sopb; &put; &get -n; &sopb; &put; &get -n; &sopb; &put; "),
+#    MacroAction(13431, "&get -n; &sopb; &put; rewrite; &get -n; &sopb; &put; &get -n; &sopb; &put; "),
+#    MacroAction(13915, "&get -n; &sopb; &put; refactor; &get -n; &sopb; &put; &get -n; &sopb; &put; "),
 
-    MacroAction(14412, "&get -n; &sopb; &put; &get -n; &dsdb; &put; rewrite -z; rewrite -z; "),
-    MacroAction(14466, "&get -n; &sopb; &put; &get -n; &dsdb; &put; balance; rewrite; "),
-    MacroAction(14488, "&get -n; &sopb; &put; &get -n; &dsdb; &put; &get -n; &blut; &put; rewrite; "),
-    MacroAction(14510, "&get -n; &sopb; &put; &get -n; &dsdb; &put; &get -n; &sopb; &put; rewrite; "),
-    MacroAction(14409, "&get -n; &sopb; &put; &get -n; &dsdb; &put; rewrite; &get -n; &dsdb; &put; "),
-    MacroAction(14444, "&get -n; &sopb; &put; &get -n; &dsdb; &put; refactor; rewrite; "),
-    MacroAction(13652, "&get -n; &sopb; &put; resub; &get -n; &dsdb; &put; rewrite; "),
-    MacroAction(13773, "&get -n; &sopb; &put; resub -z; &get -n; &dsdb; &put; rewrite; "),
-]
+#    MacroAction(14412, "&get -n; &sopb; &put; &get -n; &dsdb; &put; rewrite -z; rewrite -z; "),
+#    MacroAction(14466, "&get -n; &sopb; &put; &get -n; &dsdb; &put; balance; rewrite; "),
+#    MacroAction(14488, "&get -n; &sopb; &put; &get -n; &dsdb; &put; &get -n; &blut; &put; rewrite; "),
+#    MacroAction(14510, "&get -n; &sopb; &put; &get -n; &dsdb; &put; &get -n; &sopb; &put; rewrite; "),
+#    MacroAction(14409, "&get -n; &sopb; &put; &get -n; &dsdb; &put; rewrite; &get -n; &dsdb; &put; "),
+#    MacroAction(14444, "&get -n; &sopb; &put; &get -n; &dsdb; &put; refactor; rewrite; "),
+#    MacroAction(13652, "&get -n; &sopb; &put; resub; &get -n; &dsdb; &put; rewrite; "),
+#    MacroAction(13773, "&get -n; &sopb; &put; resub -z; &get -n; &dsdb; &put; rewrite; "),
+#]
 
 FULL_MACRO_SPACE: List[MacroAction] = [
 	MacroAction(1, "rewrite; rewrite; rewrite; rewrite; "),

@@ -2,7 +2,9 @@
 import argparse
 import logging
 
-from common.action_space.macro_spaces import FULL_MACRO_SPACE, SUPERSET_MACRO_SPACE
+from common.action_space.test_space import SUPERSET_MACRO_SPACE
+
+from common.action_space.macro_spaces import FULL_MACRO_SPACE#, SUPERSET_MACRO_SPACE
 from common.action_space.sequences import INIT, RESYN2
 from common.execution.design_eval import evaluate_fpga_design
 from common.storage.paths import get_project_root, get_run_result_dir
