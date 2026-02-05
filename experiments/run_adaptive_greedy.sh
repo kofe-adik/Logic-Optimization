@@ -12,7 +12,7 @@ BENCH_DIR="benchmarks/epfl/arithmetic"
 
 # ===== CIRCUITS TO RUN =====
 #circuits=(adder bar div hyp log2 max multiplier sin sqrt square)
-circuits=(adder hyp)
+circuits=(adder)
 # ===== LOOP ALL DESIGNS =====
 for circuit in "${circuits[@]}"; do
     blif="${BENCH_DIR}/${circuit}.blif"
