@@ -3,16 +3,17 @@ set -euo pipefail
 
 # ===== CONFIG =====
 LUT_K=6
-SPACE="full"
+#SPACE="full"
+SPACE="superset"
 REF="resyn2"
 SLOTS=5
 POOL=300
-JOBS=30
+JOBS=12
 BENCH_DIR="benchmarks/epfl/arithmetic"
 
 # ===== CIRCUITS TO RUN =====
 #circuits=(adder bar div hyp log2 max multiplier sin sqrt square)
-circuits=(adder)
+circuits=(hyp)
 # ===== LOOP ALL DESIGNS =====
 for circuit in "${circuits[@]}"; do
     blif="${BENCH_DIR}/${circuit}.blif"
