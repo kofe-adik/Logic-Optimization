@@ -25,4 +25,6 @@ storage/cache/
 .vscode/
 .idea/
 
+# Vim
 *.swp
+.swp
