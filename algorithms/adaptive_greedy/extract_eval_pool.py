@@ -4,7 +4,7 @@ import logging
 from tqdm import tqdm
 
 from common.action_space.actions import MacroAction
-from common.action_space.macro_spaces import SAFE_MACRO_SPACE
+from common.action_space.test_space import SAFE_MACRO_SPACE
 from common.execution.design_eval import evaluate_fpga_design_macro
 from common.objectives.compute_qor import compute_qor
 
@@ -30,9 +30,6 @@ def _eval_slot1(
             str(e),
         )
         return None
-
-    qor = compute_qor(metrics, ref_metrics)
-    return macro, metrics, qor
 
     qor = compute_qor(metrics, ref_metrics)
 

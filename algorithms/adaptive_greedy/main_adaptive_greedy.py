@@ -2,7 +2,7 @@
 import argparse
 import logging
 
-from common.action_space.test_space import SUPERSET_MACRO_SPACE
+from common.action_space.test_space import SUPERSET_MACRO_SPACE, CLUSTER_MACRO_SPACE
 
 from common.action_space.macro_spaces import FULL_MACRO_SPACE#, SUPERSET_MACRO_SPACE
 from common.action_space.sequences import INIT, RESYN2
@@ -18,10 +18,10 @@ def main():
     parser = argparse.ArgumentParser("Adaptive Greedy Macro Optimization")
     parser.add_argument("--design", required=True)
     parser.add_argument("--lut-k", type=int, default=6)
-    parser.add_argument("--space", choices=["full", "superset"], required=True)
+    parser.add_argument("--space", choices=["full", "superset", "cluster"], required=True)
     parser.add_argument("--ref", choices=["init", "resyn2"], required=True)
-    parser.add_argument("--pool-size", type=int, default=25)
-    parser.add_argument("--max-steps", type=int, default=10)
+    parser.add_argument("--pool-size", type=int, default=300)
+    parser.add_argument("--max-steps", type=int, default=5)
     parser.add_argument("--n-jobs", type=int, default=12)
 
     args = parser.parse_args()
@@ -60,11 +60,27 @@ def main():
         / f"{args.design}.blif"
     )
 
-    macro_space = (
-        FULL_MACRO_SPACE if args.space == "full" else SUPERSET_MACRO_SPACE
-    )
-    ref_seq = INIT if args.ref == "init" else RESYN2
+    SPACE_MAP = {
+        "full": FULL_MACRO_SPACE,
+        "superset": SUPERSET_MACRO_SPACE,
+        "cluster": CLUSTER_MACRO_SPACE,
+    }
 
+    REF_MAP = {
+        "init": INIT,
+        "resyn2": RESYN2,
+    }
+
+    try:
+        macro_space = SPACE_MAP[args.space]
+    except KeyError:
+        raise ValueError(f"Unknown space: {args.space}")
+
+    try:
+        ref_seq = REF_MAP[args.ref]
+    except KeyError:
+        raise ValueError(f"Unknown ref: {args.ref}")
+    
     # --------------------------------------------------
     # TERMINAL: CONFIG
     # --------------------------------------------------
