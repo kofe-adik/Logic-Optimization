@@ -1,31 +1,112 @@
+import os
+import argparse
 import numpy as np
-from typing import Tuple
+import logging
+from concurrent.futures import ProcessPoolExecutor
 from algorithms.bGWO.utils import evaluate_design, fitness
 
 
+# =========================================================
+# Worker
+# =========================================================
+def evaluate_individual(args):
+    design, lut_k, ref_lut, ref_level, bits = args
+
+    lut, level = evaluate_design(
+        design_file=design,
+        bits=bits,
+        lut_k=lut_k,
+    )
+
+    qor, improve = fitness(
+        ref_lut,
+        ref_level,
+        lut,
+        level,
+    )
+
+    return qor, improve
+
+
+# =========================================================
+# Binary GWO
+# =========================================================
 class BinaryGWO:
     def __init__(
         self,
         pop_size: int,
         dim: int,
         iters: int,
-        design: str,
+        design_name: str,
         lut_k: int,
-        seed: int | None = None,
+        seed: int,
+        n_workers: int | None = None,
     ):
         assert dim % 4 == 0, "dim must be multiple of 4"
 
-        # ---------------- CONFIG ----------------
         self.pop_size = pop_size
         self.dim = dim
         self.iters = iters
-        self.design = design
+        self.design_name = design_name
         self.lut_k = lut_k
+        self.seed = seed
+        self.n_workers = n_workers
 
+        # -------------------------------------------------
+        # Auto build design path
+        # -------------------------------------------------
+        self.design = f"./benchmarks/epfl/arithmetic/{design_name}.blif"
+
+        if not os.path.exists(self.design):
+            raise FileNotFoundError(f"Design not found: {self.design}")
+
+        # -------------------------------------------------
+        # Auto build logdir
+        # -------------------------------------------------
+        option = f"lut_k_{lut_k}-pop_{pop_size}-dim_{dim}-iters_{iters}"
+
+        self.logdir = os.path.join(
+            "./results/runs/bGWO1",
+            option,
+            design_name,
+            str(seed),
+        )
+
+        os.makedirs(self.logdir, exist_ok=True)
+
+        logfile = os.path.join(self.logdir, "run.log")
+
+        # -------------------------------------------------
         # RNG
+        # -------------------------------------------------
         self.rng = np.random.default_rng(seed)
 
-        # ---------------- BASELINE ----------------
+        # -------------------------------------------------
+        # Logging
+        # -------------------------------------------------
+        self.logger = logging.getLogger(f"BinaryGWO_{seed}")
+        self.logger.setLevel(logging.INFO)
+        self.logger.handlers.clear()
+        self.logger.propagate = False
+
+        formatter = logging.Formatter(
+            "[%(asctime)s] %(message)s",
+            datefmt="%H:%M:%S",
+        )
+
+        # console
+        ch = logging.StreamHandler()
+        ch.setFormatter(formatter)
+        self.logger.addHandler(ch)
+
+        # file
+        fh = logging.FileHandler(logfile, mode="w")
+        fh.setFormatter(formatter)
+        self.logger.addHandler(fh)
+
+        # -------------------------------------------------
+        # BASELINE
+        # -------------------------------------------------
         baseline_bits = np.array(
             [0,1,1,0, 0,0,0,0, 0,0,1,0, 0,1,1,0, 0,0,0,0,
              0,0,0,1, 0,1,1,0, 0,0,1,1, 0,0,0,1, 0,1,1,0],
@@ -38,47 +119,37 @@ class BinaryGWO:
             lut_k=self.lut_k,
         )
 
-        # ---------------- POPULATION ----------------
+        # -------------------------------------------------
+        # POPULATION
+        # -------------------------------------------------
         self.pop = self.rng.integers(0, 2, size=(pop_size, dim), dtype=np.uint8)
-
-        # ---------------- FITNESS ----------------
         self.pop_f = np.full(pop_size, np.inf)
+        self.pop_improve = np.zeros(pop_size)
 
-        # ---------------- LEADERS ----------------
+        # LEADERS
         self.x_alpha = None
-        self.x_beta = None
-        self.x_delta = None
         self.x_alpha_f = np.inf
-        self.x_beta_f = np.inf
-        self.x_delta_f = np.inf
+        self.x_alpha_improve = 0.0
 
-        # ---------------- INIT GWO COEFF ----------------
         self.update_coeff(None)
-
-        # ---------------- INIT EVAL ----------------
         self.evaluate_population()
         self.update_leaders()
 
-        print("[BinaryGWO] INIT DONE")
-        print("REF: LUT = ", self.ref_lut, " - LEVEL = ", self.ref_level)
-        print(f"pop shape: {self.pop.shape}")
-        print(f"pop fitness: {self.pop_f}")
-        print("A shape: alpha = ", self.A_alpha.shape, " beta = ", self.A_beta.shape, " delta = ", self.A_delta.shape)
-        print("C shape: alpha = ", self.C_alpha.shape, " beta = ", self.C_beta.shape, " delta = ", self.C_delta.shape)
-        print("ALPHA: ", self.x_alpha, " - Fitness: ", self.x_alpha_f)
-        print("BETA:  ", self.x_beta, " - Fitness: ", self.x_beta_f)
-        print("DELTA: ", self.x_delta, " - Fitness: ", self.x_delta_f)
+        self.logger.info(
+            f"DESIGN={design_name} "
+            f"LUT_K={lut_k} POP={pop_size} DIM={dim} ITERS={iters} SEED={seed}"
+        )
+        self.logger.info(
+            f"REF LUT={self.ref_lut} LEVEL={self.ref_level}"
+        )
 
-
-    # -----------------------------------------
+    # -----------------------------------------------------
     def update_coeff(self, t: int | None):
-        # a decreases linearly from 2 → 0
         if t is None:
             self.a = 2.0
         else:
             self.a = 2.0 - 2.0 * t / self.iters
 
-        # r1, r2 tensors
         self.r1_alpha = self.rng.random((self.pop_size, self.dim))
         self.r1_beta  = self.rng.random((self.pop_size, self.dim))
         self.r1_delta = self.rng.random((self.pop_size, self.dim))
@@ -87,38 +158,60 @@ class BinaryGWO:
         self.r2_beta  = self.rng.random((self.pop_size, self.dim))
         self.r2_delta = self.rng.random((self.pop_size, self.dim))
 
-        # A tensors
         self.A_alpha = 2 * self.a * self.r1_alpha - self.a
         self.A_beta  = 2 * self.a * self.r1_beta  - self.a
         self.A_delta = 2 * self.a * self.r1_delta - self.a
 
-        # C tensors
         self.C_alpha = 2 * self.r2_alpha
         self.C_beta  = 2 * self.r2_beta
         self.C_delta = 2 * self.r2_delta
 
-    # ------------------------------------------
+    # -----------------------------------------------------
     def evaluate_population(self):
-        for i in range(self.pop_size):
-            bits = self.pop[i].tolist()
 
-            lut, level = evaluate_design(
-                design_file=self.design,
-                bits=bits,
-                lut_k=self.lut_k,
+        # Nếu population nhỏ thì không cần spawn process
+        if self.pop_size < 4 or self.n_workers == 1:
+            for i in range(self.pop_size):
+                bits = self.pop[i].tolist()
+                lut, level = evaluate_design(
+                    design_file=self.design,
+                    bits=bits,
+                    lut_k=self.lut_k,
+                )
+                qor, improve = fitness(
+                    self.ref_lut,
+                    self.ref_level,
+                    lut,
+                    level,
+                )
+                self.pop_f[i] = qor
+                self.pop_improve[i] = improve
+            return
+
+        # Parallel
+        args = [
+            (
+                self.design,
+                self.lut_k,
+                self.ref_lut,
+                self.ref_level,
+                self.pop[i].tolist(),
             )
+            for i in range(self.pop_size)
+        ]
 
-            qor, _ = fitness(self.ref_lut, self.ref_level, lut, level)
+        with ProcessPoolExecutor(max_workers=self.n_workers) as executor:
+            results = list(executor.map(evaluate_individual, args))
+
+        for i, (qor, improve) in enumerate(results):
             self.pop_f[i] = qor
+            self.pop_improve[i] = improve
 
-        #print("[GWO] Population evaluated")
-
-    # ------------------------------------------
+    # -----------------------------------------------------
     def update_leaders(self):
         idx = np.argsort(self.pop_f)
         i1, i2, i3 = idx[:3]
 
-        # first init
         if self.x_alpha is None:
             self.x_alpha = self.pop[i1].copy()
             self.x_beta = self.pop[i2].copy()
@@ -127,44 +220,64 @@ class BinaryGWO:
             self.x_alpha_f = self.pop_f[i1]
             self.x_beta_f = self.pop_f[i2]
             self.x_delta_f = self.pop_f[i3]
+
+            self.x_alpha_improve = self.pop_improve[i1]
+            self.x_beta_improve = self.pop_improve[i2]
+            self.x_delta_improve = self.pop_improve[i3]
             return
 
-        # merge old + new
-        pool_bits = np.vstack([self.x_alpha, self.x_beta, self.x_delta, self.pop[i1], self.pop[i2], self.pop[i3]])
-        pool_fit  = np.array([self.x_alpha_f, self.x_beta_f, self.x_delta_f,
-                              self.pop_f[i1], self.pop_f[i2], self.pop_f[i3]])
+        pool_bits = np.vstack([
+            self.x_alpha,
+            self.x_beta,
+            self.x_delta,
+            self.pop[i1],
+            self.pop[i2],
+            self.pop[i3],
+        ])
+
+        pool_fit = np.array([
+            self.x_alpha_f,
+            self.x_beta_f,
+            self.x_delta_f,
+            self.pop_f[i1],
+            self.pop_f[i2],
+            self.pop_f[i3],
+        ])
+
+        pool_improve = np.array([
+            self.x_alpha_improve,
+            self.x_beta_improve,
+            self.x_delta_improve,
+            self.pop_improve[i1],
+            self.pop_improve[i2],
+            self.pop_improve[i3],
+        ])
 
         order = np.argsort(pool_fit)
 
         self.x_alpha = pool_bits[order[0]].copy()
+        self.x_alpha_f = pool_fit[order[0]]
+        self.x_alpha_improve = pool_improve[order[0]]
+
         self.x_beta = pool_bits[order[1]].copy()
+        self.x_beta_f = pool_fit[order[1]]
+        self.x_beta_improve = pool_improve[order[1]]
+
         self.x_delta = pool_bits[order[2]].copy()
-        self.x_alpha_f, self.x_beta_f, self.x_delta_f = pool_fit[order[:3]].tolist()
+        self.x_delta_f = pool_fit[order[2]]
+        self.x_delta_improve = pool_improve[order[2]]
 
-    # -----------------------------------------
+    # -------------------------------------------
     def compute_D(self):
-        """
-        Compute distance tensors D_alpha, D_beta, D_delta
-        Shape: (pop_size, dim)
-        """
+        self.D_alpha = np.abs(self.C_alpha * self.x_alpha - self.pop)
+        self.D_beta  = np.abs(self.C_beta  * self.x_beta  - self.pop)
+        self.D_delta = np.abs(self.C_delta * self.x_delta - self.pop)
 
-        # broadcast leader (dim,) → (pop_size, dim)
-        X1 = self.x_alpha  # alpha
-        X2 = self.x_beta  # beta
-        X3 = self.x_delta  # delta
-
-        # Continuous GWO canonical distance
-        self.D_alpha = np.abs(self.C_alpha * X1 - self.pop)
-        self.D_beta  = np.abs(self.C_beta  * X2 - self.pop)
-        self.D_delta = np.abs(self.C_delta * X3 - self.pop)
-
-    # ------------------------------------------
     def compute_cstep(self):
         self.cstep_alpha = 1.0 / (1.0 + np.exp(-10.0 * (self.A_alpha * self.D_alpha - 0.5)))
         self.cstep_beta  = 1.0 / (1.0 + np.exp(-10.0 * (self.A_beta  * self.D_beta  - 0.5)))
         self.cstep_delta = 1.0 / (1.0 + np.exp(-10.0 * (self.A_delta * self.D_delta - 0.5)))
 
-    # ------------------------------------------
     def compute_bstep(self):
         rand_alpha = self.rng.random((self.pop_size, self.dim))
         rand_beta  = self.rng.random((self.pop_size, self.dim))
@@ -174,7 +287,6 @@ class BinaryGWO:
         self.bstep_beta  = (self.cstep_beta  >= rand_beta ).astype(np.uint8)
         self.bstep_delta = (self.cstep_delta >= rand_delta).astype(np.uint8)
 
-    # ------------------------------------------
     def compute_x(self):
         Xa = self.x_alpha[None, :]
         Xb = self.x_beta[None, :]
@@ -184,71 +296,66 @@ class BinaryGWO:
         self.X2 = ((Xb + self.bstep_beta ) >= 1).astype(np.uint8)
         self.X3 = ((Xd + self.bstep_delta) >= 1).astype(np.uint8)
 
-    # -------------------------------------------
     def crossover(self):
-        """
-        Discrete 3-parent crossover:
-        xd = X1 if rand < 1/3
-             X2 if 1/3 <= rand < 2/3
-             X3 otherwise
-        """
-
         r = self.rng.random((self.pop_size, self.dim))
-
         self.pop = np.where(
             r < 1/3, self.X1,
             np.where(r < 2/3, self.X2, self.X3)
         ).astype(np.uint8)
 
-
-    # -------------------------------------------
+    # -----------------------------------------------------
     def run(self):
-        """
-        Main Binary GWO optimization loop.
-       Returns:
-            best_bits, best_fitness
-        """
-
         for t in range(self.iters):
-            # ---------------- STEP I: update coefficients a, A, C
-            # self.update_coeff(t)
 
-            # ---------------- STEP II: compute D, cstep, bstep, X1,X2,X3
             self.compute_D()
             self.compute_cstep()
             self.compute_bstep()
             self.compute_x()
 
-            # ---------------- STEP III: crossover to update population
             self.crossover()
 
-            # ---------------- STEP IV: evaluate new population
-            self.update_coeff(t+1)
+            self.update_coeff(t + 1)
             self.evaluate_population()
-
-            # ---------------- STEP V: update leaders α β δ
             self.update_leaders()
 
-            # Optional logging
-            print(f"[Iter {t + 1:03d}] best = {self.x_alpha_f}")
-            print("ALPHA: ", self.x_alpha)
-            print("BETA:  ", self.x_beta)
-            print("DELTA: ", self.x_delta)
+            self.logger.info(
+                f"[Iter {t+1:03d}] "
+                f"a={self.a:.2f} | "
+                f"qor={self.x_alpha_f:.6f} | "
+                f"improve={self.x_alpha_improve:.4f}% | "
+                f"alpha={''.join(self.x_alpha.astype(str))}"
+            )
 
         return self.x_alpha.copy(), self.x_alpha_f
 
-    # -------------------------------------------
-    def test(self):
-        pass
 
-
+# =========================================================
+# MAIN
+# =========================================================
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--design", type=str, required=True,
+                        help="adder | bar | hyp | ...")
+
+    parser.add_argument("--pop", type=int, default=100)
+    parser.add_argument("--dim", type=int, default=80)
+    parser.add_argument("--iters", type=int, default=200)
+    parser.add_argument("--lut_k", type=int, default=6)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--workers", type=int, default=None)
+
+    args = parser.parse_args()
+
     gwo = BinaryGWO(
-        pop_size=100,
-        dim=80,
-        iters=200,
-        design="./benchmarks/epfl/arithmetic/adder.blif",
-        lut_k=6,
-        seed=42,
+        pop_size=args.pop,
+        dim=args.dim,
+        iters=args.iters,
+        design_name=args.design,
+        lut_k=args.lut_k,
+        seed=args.seed,
+        n_workers=args.workers,
     )
-    res_seq, res_qor = gwo.run() 
+
+    res_seq, res_qor = gwo.run()
