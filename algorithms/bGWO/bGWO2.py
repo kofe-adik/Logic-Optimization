@@ -66,7 +66,7 @@ class BinaryGWO:
         option = f"lut_k_{lut_k}-pop_{pop_size}-dim_{dim}-iters_{iters}"
 
         self.logdir = os.path.join(
-            "./results/runs/bGWO1",
+            "./results/runs/bGWO2",
             option,
             design_name,
             str(seed),
