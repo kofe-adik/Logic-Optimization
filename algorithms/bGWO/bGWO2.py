@@ -51,7 +51,7 @@ class BinaryGWO:
         self.lut_k = lut_k
         self.seed = seed
         self.n_workers = n_workers
-
+        self.cache = {}
         # -------------------------------------------------
         # Auto build design path
         # -------------------------------------------------
@@ -168,45 +168,109 @@ class BinaryGWO:
         self.C_delta = 2 * self.r2_delta
 
     # -----------------------------------------------------
+#   def evaluate_population(self):
+#
+#        # Nếu population nhỏ thì không cần spawn process
+#        if self.pop_size < 4 or self.n_workers == 1:
+#            for i in range(self.pop_size):
+#                bits = self.pop[i].tolist()
+#                lut, level = evaluate_design(
+#                    design_file=self.design,
+#                    bits=bits,
+#                    lut_k=self.lut_k,
+#                )
+#                qor, improve = fitness(
+#                    self.ref_lut,
+#                    self.ref_level,
+#                    lut,
+#                    level,
+#                )
+#                self.pop_f[i] = qor
+#                self.pop_improve[i] = improve
+#            return
+#
+#        # Parallel
+#        args = [
+#            (
+#                self.design,
+#                self.lut_k,
+#                self.ref_lut,
+#                self.ref_level,
+#                self.pop[i].tolist(),
+#            )
+#            for i in range(self.pop_size)
+#        ]
+#
+#        with ProcessPoolExecutor(max_workers=self.n_workers) as executor:
+#            results = list(executor.map(evaluate_individual, args))
+#
+#        for i, (qor, improve) in enumerate(results):
+#            self.pop_f[i] = qor
+#            self.pop_improve[i] = improve
+#
+    # -----------------------------------------------------
     def evaluate_population(self):
 
-        # Nếu population nhỏ thì không cần spawn process
-        if self.pop_size < 4 or self.n_workers == 1:
-            for i in range(self.pop_size):
-                bits = self.pop[i].tolist()
-                lut, level = evaluate_design(
-                    design_file=self.design,
-                    bits=bits,
-                    lut_k=self.lut_k,
-                )
-                qor, improve = fitness(
-                    self.ref_lut,
-                    self.ref_level,
-                    lut,
-                    level,
-                )
+        tasks = []
+        task_meta = []  # (index, key)
+        cache_hits = 0
+        cache_misses = 0    
+        # =========================
+        # FILTER CACHE
+        # =========================
+        for i in range(self.pop_size):
+            bits = self.pop[i]
+            key = bytes(bits)
+
+            if key in self.cache:
+                cache_hits += 1
+
+                qor, improve = self.cache[key]
                 self.pop_f[i] = qor
                 self.pop_improve[i] = improve
-            return
+            else:
+                cache_misses += 1
 
-        # Parallel
-        args = [
-            (
-                self.design,
-                self.lut_k,
-                self.ref_lut,
-                self.ref_level,
-                self.pop[i].tolist(),
-            )
-            for i in range(self.pop_size)
-        ]
+                tasks.append((
+                    self.design,
+                    self.lut_k,
+                    self.ref_lut,
+                    self.ref_level,
+                    bits.tolist(),
+                ))
+                task_meta.append((i, key))
 
-        with ProcessPoolExecutor(max_workers=self.n_workers) as executor:
-            results = list(executor.map(evaluate_individual, args))
+        if not tasks:
+            return cache_hits, cache_misses, 1.0
 
-        for i, (qor, improve) in enumerate(results):
+        # =========================
+        # PARALLEL / SINGLE
+        # =========================
+        if len(tasks) < 4 or self.n_workers == 1:
+            results = [evaluate_individual(a) for a in tasks]
+        else:
+            with ProcessPoolExecutor(max_workers=self.n_workers) as executor:
+                results = list(executor.map(evaluate_individual, tasks))
+
+        # =========================
+        # UPDATE CACHE
+        # =========================
+        for (i, key), (qor, improve) in zip(task_meta, results):
+            self.cache[key] = (qor, improve)
             self.pop_f[i] = qor
             self.pop_improve[i] = improve
+
+        # =========================
+        # LIMIT CACHE (QUAN TRỌNG)
+        # =========================
+        if len(self.cache) > 200000:
+            self.cache.clear()
+
+        total = cache_hits + cache_misses
+        hit_rate = cache_hits / total if total > 0 else 0.0
+
+        return cache_hits, cache_misses, hit_rate
+
 
     # -----------------------------------------------------
     def update_leaders(self):
@@ -312,7 +376,8 @@ class BinaryGWO:
 #            self.crossover()
 
             self.update_coeff(t + 1)
-            self.evaluate_population()
+#            self.evaluate_population()
+            cache_hits, cache_misses, hit_rate = self.evaluate_population()
             self.update_leaders()
 
             self.logger.info(
@@ -320,7 +385,8 @@ class BinaryGWO:
                 f"a={self.a:.2f} | "
                 f"qor={self.x_alpha_f:.6f} | "
                 f"improve={self.x_alpha_improve:.4f}% | "
-                f"alpha={''.join(self.x_alpha.astype(str))}"
+                f"alpha={''.join(self.x_alpha.astype(str))} | "
+                f"[CACHE] hit={cache_hits} miss={cache_misses} hit_rate={hit_rate:.2%}"
             )
 
         return self.x_alpha.copy(), self.x_alpha_f
